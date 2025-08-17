@@ -23,7 +23,8 @@ if not os.path.exists(save_folder):
 # Define the default configuration.
 configs = {
     "Alarms": [],
-    "Sound": os.path.join(file_path, "data", "sound.wav")
+    "Sound": os.path.join(file_path, "data", "sound.wav"),
+    "Theme": "dark"
 }
 
 # Try to load the configuration from the file.
@@ -62,6 +63,7 @@ class Dialog(QDialog):
             combo = QComboBox()
             combo.addItems(["AM", "PM"])
             hbox.addWidget(combo)
+            combo.setStyleSheet("font-size: 15px")
         
         form.addRow(hbox)
         btn = QPushButton("Submit")
@@ -216,7 +218,7 @@ class Alarm(QWidget):
                 # Check for a match.
                 if current_meridiem == meridiem and current_hour == int(alarm_time[0]) and current_minute == int(alarm_time[1]):
                     self.play()
-                    self.window().tray_icon.showMessage("Alarm", "Alarm is going off!", QSystemTrayIcon.Warning, 5000)
+                    self.window().tray_icon.showMessage("Alarm", "Alarm is going off!", QSystemTrayIcon.Warning, 3000)
 
 # Widget for a countdown timer.
 class Timer(QWidget):
@@ -231,6 +233,8 @@ class Timer(QWidget):
         self.btn.setToolTip("Set timer")
         self.btn2 = QPushButton("Stop")
         self.btn2.setToolTip("Stop sound")
+        self.btn3 = QPushButton("Reset")
+        self.btn3.setToolTip("Reset Timer")
         self.remaining_seconds = 0
         
         self.initUI()
@@ -241,6 +245,7 @@ class Timer(QWidget):
     def initUI(self):
         btn_hbox = QHBoxLayout()
         btn_hbox.addWidget(self.btn)
+        btn_hbox.addWidget(self.btn3)
         btn_hbox.addWidget(self.btn2)
 
         vbox = QVBoxLayout()
@@ -249,6 +254,7 @@ class Timer(QWidget):
         # Connect buttons to their functions.
         self.btn.clicked.connect(lambda: Dialog(self, "Set Timer", "Input Hour, Minute, Second", 3, False, self.get_info))
         self.btn2.clicked.connect(pygame.mixer.stop)
+        self.btn3.clicked.connect(self.reset)
         
         vbox.addWidget(self.title)
         vbox.addStretch()
@@ -256,6 +262,10 @@ class Timer(QWidget):
         vbox.addStretch()
         vbox.addLayout(btn_hbox)
         self.setLayout(vbox)
+    
+    def reset(self):
+        self.timer.stop()
+        self.label.setText("00:00:00")
 
     def get_info(self, parent, line_edits):
         input_data = []
@@ -305,7 +315,7 @@ class Timer(QWidget):
                     QMessageBox.warning(self, "The file is not found", "The file doesn't exist")
                 else:
                     music.play()
-                    self.window().tray_icon.showMessage("Timer", "Timer is done!", QSystemTrayIcon.Warning, 5000)
+                    self.window().tray_icon.showMessage("Timer", "Timer is done!", QSystemTrayIcon.Warning, 3000)
 
 # Main application window.
 class App(QMainWindow):
@@ -360,7 +370,11 @@ class App(QMainWindow):
         self.windows.setLayout(hbox)
         self.setCentralWidget(self.windows)
         
-        self.initStyle() # Apply custom stylesheet.
+        # Load custom stylesheet based on configuration
+        if configs["Theme"] == "dark":
+            self.initDarkStyle() 
+        elif configs["Theme"] == "light":
+            self.initLightStyle()
         self.initTray()  # Initialize system tray icon.
     
     def initTray(self):
@@ -409,25 +423,53 @@ class App(QMainWindow):
                         song_name.setText(f"Current Sound is {name[:10]}..." if len(name) > 10 else f"Current Sound is {name}")
                         self.save_configs()
                     break
+        
+        # Function to change theme
+        def theme():
+            configs["Theme"] = combo.currentText().lower()
+            self.save_configs()
+            # Load custom stylesheet based on configuration
+            if configs["Theme"] == "dark":
+                self.initDarkStyle() 
+            elif configs["Theme"] == "light":
+                self.initLightStyle()
 
         # Create and display the settings dialog.
         app = QDialog(self)
         app.resize(200, 100)
         app.setWindowTitle("Settings")
+        
         vbox = QVBoxLayout()
+        # Create sound title.
         title = QLabel("Change sound")
         title.setStyleSheet("font-weight: 700")
         title.setAlignment(Qt.AlignCenter)
         vbox.addWidget(title)
-        
         # Display the current sound file name.
         name = os.path.split(configs["Sound"])[1]
         song_name = QLabel(f"Current Sound is {name[:10]}..." if len(name) > 10 else f"Current Sound is {name}")
         vbox.addWidget(song_name)
-        
+        # Create button to choose file.
         open_btn = QPushButton("Choose...")
         open_btn.clicked.connect(open_file)
         vbox.addWidget(open_btn)
+
+        hbox = QHBoxLayout()
+        # Create Theme title
+        title = QLabel("Change Theme")
+        title.setStyleSheet("font-weight: 700")
+        title.setAlignment(Qt.AlignCenter)
+        hbox.addWidget(title)
+        # Display available themes
+        combo = QComboBox()
+        combo.currentTextChanged.connect(theme)
+        second_theme = "light" if configs["Theme"] == "dark" else "dark"
+        combo.addItems([configs["Theme"].capitalize(), second_theme.capitalize()])
+        combo.setStyleSheet("font-size: 15px")
+
+        hbox.addWidget(combo)
+        
+        vbox.addLayout(hbox)
         app.setLayout(vbox)
         app.exec_()
 
@@ -503,9 +545,6 @@ class App(QMainWindow):
                 background-color: white;
                 color: black
             }
-            QComboBox{
-                
-            }
         """)
 
     def initLightStyle(self):
@@ -538,7 +577,7 @@ class App(QMainWindow):
                 font-size: 15px;
             }
             #set{
-                background-color: black;
+                background-color: white;
             }
             #set:hover{
                 background-color: rgb(53, 53, 53);
@@ -546,9 +585,6 @@ class App(QMainWindow):
             QScrollBar{
                 background-color: white;
                 color: black
-            }
-            QComboBox{
-                font-size: 10px
             }
         """)
 
